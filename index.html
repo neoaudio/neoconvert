@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  neoconvert v1.0.1 — 2026-09-29
+  neoconvert v1.0.2 — 2026-09-29
   Offline single-file audio converter. No libraries. No network access.
   All processing is on the device.
 
@@ -3903,7 +3903,7 @@ fn psyratio(@builtin(global_invocation_id) id: vec3<u32>) {
 <script>
 'use strict';
 (function () {
-  const VERSION = '1.0.1';
+  const VERSION = '1.0.2';
   const $ = s => document.querySelector(s);
   const body = document.body, canvas = $('#grid'), addBtn = $('#add'), fileIn = $('#file');
   const panel = $('#panel'), statusEl = $('#status');
@@ -3983,7 +3983,7 @@ fn psyratio(@builtin(global_invocation_id) id: vec3<u32>) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = gridColor;
-    const s = Math.max(4, Math.round(24 * dpr));
+    const s = Math.max(4, Math.round(34 * dpr));      // 34 px = 24 x sqrt(2): half as many dots per area
     const cx = Math.round(W / 2), cy = Math.round(H / 2);
     const x0 = ((cx % s) + s) % s, y0 = ((cy % s) + s) % s;
     ctx.beginPath();
