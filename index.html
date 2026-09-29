@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  neoconvert v1.0.0 — 2026-09-29
+  neoconvert v1.0.1 — 2026-09-29
   Offline single-file audio converter. No libraries. No network access.
   All processing is on the device.
 
@@ -62,17 +62,19 @@ body{
 #add svg{width:28px;height:28px;display:block}
 #add:active{transform:translate(-50%,-50%) scale(.94);transition-duration:80ms}
 #add:focus-visible{box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg)}
-body.lifted #add{transform:translate(-50%,calc(-50% - 132px)) scale(.67)}
-body.lifted #add:active{transform:translate(-50%,calc(-50% - 132px)) scale(.62)}
+/* lifted: button and panel are one group, centred in the screen (layout() sets the variables) */
+body.lifted #add{transform:translate(-50%,calc(-50% + var(--btn-dy,-132px))) scale(.67)}
+body.lifted #add:active{transform:translate(-50%,calc(-50% + var(--btn-dy,-132px))) scale(.62)}
 body.busy #add{opacity:.25;pointer-events:none}
 
 /* center panel */
 #panel{
-  position:absolute;left:50%;top:calc(50% - 84px);transform:translateX(-50%);
+  position:absolute;left:50%;top:var(--panel-top,calc(50% - 84px));transform:translateX(-50%);
   width:min(340px,calc(100vw - 32px));
-  max-height:calc(50% + 84px - 16px - env(safe-area-inset-bottom));
+  max-height:var(--panel-max,calc(50% + 84px - 16px - env(safe-area-inset-bottom)));
   overflow-y:auto;text-align:center;animation:rise .25s ease-out;
 }
+#safe{position:absolute;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 @keyframes rise{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
 .name{font-size:13px;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta{font-size:12px;color:var(--dim);margin-top:2px}
@@ -133,6 +135,7 @@ noscript{position:fixed;left:0;right:0;bottom:24px;text-align:center;color:var(-
   </button>
   <section id="panel" hidden></section>
   <div id="status" hidden role="status" aria-live="polite"></div>
+  <div id="safe" aria-hidden="true"></div>
   <input id="file" type="file" tabindex="-1" aria-hidden="true"
          accept="audio/*,.wav,.wave,.aif,.aiff,.aifc,.au,.snd,.caf,.flac,.mp3,.m4a,.m4b,.aac,.mp4,.ogg,.oga,.opus,.webm,.weba">
 </main>
@@ -3900,7 +3903,7 @@ fn psyratio(@builtin(global_invocation_id) id: vec3<u32>) {
 <script>
 'use strict';
 (function () {
-  const VERSION = '1.0.0';
+  const VERSION = '1.0.1';
   const $ = s => document.querySelector(s);
   const body = document.body, canvas = $('#grid'), addBtn = $('#add'), fileIn = $('#file');
   const panel = $('#panel'), statusEl = $('#status');
@@ -4201,7 +4204,31 @@ fn psyratio(@builtin(global_invocation_id) id: vec3<u32>) {
     return hh ? `${hh}:${p(mm)}:${p(ss)}` : `${mm}:${p(ss)}`;
   }
 
+  // Place the lifted button and the panel as one group in the middle of the screen. The panel scrolls
+  // only when the group is taller than the screen; then the button goes to the top edge.
+  const stage = $('#stage'), safeEl = $('#safe');
+  const BTN = 48, GAP = 20, EDGE = 16;               // lifted button size (72 x 0.67), gap, screen margin
+  function layout() {
+    if (panel.hidden) return;
+    const cs = getComputedStyle(safeEl), sTop = parseFloat(cs.paddingTop) || 0, sBot = parseFloat(cs.paddingBottom) || 0;
+    const H = stage.clientHeight;
+    panel.style.maxHeight = 'none';
+    const content = panel.scrollHeight;
+    panel.style.maxHeight = '';
+    const avail = H - sTop - sBot - 2 * EDGE;
+    const top = sTop + EDGE + Math.max(0, (avail - (BTN + GAP + content)) / 2);
+    const panelTop = top + BTN + GAP;
+    body.style.setProperty('--btn-dy', Math.round(top + BTN / 2 - H / 2) + 'px');
+    body.style.setProperty('--panel-top', Math.round(panelTop) + 'px');
+    body.style.setProperty('--panel-max', Math.max(96, Math.floor(H - panelTop - sBot - EDGE)) + 'px');
+  }
+  addEventListener('resize', layout);
+  if (window.visualViewport) visualViewport.addEventListener('resize', layout);
+
   function render() {
+    try { renderPanel(); } finally { layout(); }
+  }
+  function renderPanel() {
     body.classList.toggle('lifted', state !== S.IDLE);
     body.classList.toggle('busy', state === S.CONVERTING);
     addBtn.setAttribute('aria-label', state === S.IDLE ? 'Select an audio file' : 'Select a different audio file');
@@ -4337,6 +4364,15 @@ fn psyratio(@builtin(global_invocation_id) id: vec3<u32>) {
     job.rate = f.defRate ? f.defRate(job.info) : 0;
     setState(S.SETTINGS);
     focus('.opt.sel');
+    revealSettings();
+  }
+  // Small screens: scroll the panel so the settings and Convert are visible (the selected format stays in view)
+  function revealSettings() {
+    const sel = panel.querySelector('.opt.sel'), go = panel.querySelector('.settings .go');
+    if (!sel || !go || panel.scrollHeight <= panel.clientHeight) return;
+    const pr = panel.getBoundingClientRect(), top = sel.getBoundingClientRect().top - pr.top + panel.scrollTop;
+    const bottom = go.getBoundingClientRect().bottom - pr.top + panel.scrollTop + 8;
+    panel.scrollTop = Math.min(top, Math.max(panel.scrollTop, bottom - panel.clientHeight));
   }
 
   /* ---------- conversion ---------- */
